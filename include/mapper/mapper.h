@@ -54,6 +54,7 @@ public:
     cloud.reset();
     return false;
   }
+  virtual std::size_t GetMapElementCount() const { return 0; }
 };
 
 } // namespace mapping

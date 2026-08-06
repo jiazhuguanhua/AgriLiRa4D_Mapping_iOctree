@@ -37,6 +37,9 @@ public:
   void Update(const MapperInput &input) override;
   void Reset() override;
   bool Save(const std::string &path) const override;
+  std::size_t GetMapElementCount() const override {
+    return octree_ ? octree_->size() : 0;
+  }
 
   const octomap::OcTree *GetOctree() const override { return octree_.get(); }
 

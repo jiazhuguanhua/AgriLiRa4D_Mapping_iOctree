@@ -30,6 +30,9 @@ public:
   void Reset() override;
   bool Save(const std::string &path) const override;
   bool GetMapCloud(CloudPtr &cloud) const override;
+  std::size_t GetMapElementCount() const override {
+    return ioctree_ ? ioctree_->size() : 0;
+  }
 
 private:
   std::unique_ptr<thuni::Octree> MakeTree() const;

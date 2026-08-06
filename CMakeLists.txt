@@ -121,4 +121,25 @@ if(CATKIN_ENABLE_TESTING)
   catkin_install_python(PROGRAMS test/ioctree_integration_test.py
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
   add_rostest(test/ioctree_integration.test)
+
+  add_executable(map_update_benchmark
+    benchmark/map_update_benchmark.cpp
+    src/mapper/mapper.cpp
+    src/mapper/mapper_octomap.cpp
+    src/mapper/mapper_ioctree.cpp
+  )
+  target_include_directories(map_update_benchmark PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${IOCTREE_INCLUDE_DIR}
+    ${catkin_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIRS}
+    ${PCL_INCLUDE_DIRS}
+    ${OCTOMAP_INCLUDE_DIRS}
+  )
+  target_link_libraries(map_update_benchmark
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    ${OCTOMAP_LIBRARIES}
+    ${YAML_CPP_LIBRARIES}
+  )
 endif()
