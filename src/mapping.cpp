@@ -24,6 +24,8 @@ Mapping::Mapping(ros::NodeHandle &nh, const Options &options)
       nh_.advertise<sensor_msgs::PointCloud2>("radar_aft_mapped", 10);
   pub_octomap_ =
       nh_.advertise<octomap_msgs::Octomap>("octomap_binary", 1, true);
+  pub_ioctree_map_ =
+      nh_.advertise<sensor_msgs::PointCloud2>("ioctree_map_points", 1, true);
   pub_update_stats_ =
       nh_.advertise<jsk_rviz_plugins::OverlayText>("mapper_update_stats", 1);
 
@@ -32,6 +34,10 @@ Mapping::Mapping(ros::NodeHandle &nh, const Options &options)
 
   if (options_.mapper_type == 0) {
     mapper_ = std::make_unique<OctoMapper>(options_.octomap_options);
+    ROS_INFO("Using OctoMap occupancy-map backend.");
+  } else if (options_.mapper_type == 1) {
+    mapper_ = std::make_unique<IOctreeMapper>(options_.ioctree_options);
+    ROS_INFO("Using i-Octree incremental point-map backend.");
   } else {
     ROS_ERROR("Unsupported mapper type: %d", options_.mapper_type);
     throw std::runtime_error("Unsupported mapper type");
@@ -90,6 +96,10 @@ void Mapping::LidarCBK(const sensor_msgs::PointCloud2ConstPtr &msg) {
   CloudPtr cloud(new PointCloudType);
   Preprocess::RSAiry2PCL(msg, cloud, options_.lidar_filter_num,
                          options_.lidar_blind);
+  if (cloud->empty()) {
+    ROS_WARN_THROTTLE(1.0, "LiDAR cloud is empty after preprocessing.");
+    return;
+  }
   std::sort(cloud->points.begin(), cloud->points.end(),
             [](const PointType &a, const PointType &b) {
               return a.curvature < b.curvature;
@@ -119,7 +129,7 @@ void Mapping::LidarCBK(const sensor_msgs::PointCloud2ConstPtr &msg) {
   // check timestamp order
   if (timestamp < data_.last_lidar_time) {
     ROS_ERROR("LiDAR time Sync ERROR");
-    data_.lidar_buffer.clear();
+    data_.lidar_points_stamped_buffer.clear();
   }
 
   // update data buffer
@@ -130,7 +140,6 @@ void Mapping::LidarCBK(const sensor_msgs::PointCloud2ConstPtr &msg) {
   }
 
   data_.last_lidar_time = timestamp;
-  data_.lidar_buffer.emplace_back(timestamp, cloud);
   data_.lidar_points_stamped_buffer.insert(
       data_.lidar_points_stamped_buffer.end(), lidar_points_stamped.begin(),
       lidar_points_stamped.end());
@@ -402,7 +411,7 @@ void Mapping::Process() {
 
     PublishUpdateStats(stats);
 
-    PublishOctomap(ros::Time(mapper_input.timestamp));
+    PublishMap(ros::Time(mapper_input.timestamp));
   }
 }
 
@@ -448,26 +457,42 @@ void Mapping::PublishUpdateStats(const MapperUpdateStats &stats) {
   pub_update_stats_.publish(message);
 }
 
-void Mapping::PublishOctomap(const ros::Time &stamp) {
-  if (!mapper_ || !mapper_->GetOctree())
+void Mapping::PublishMap(const ros::Time &stamp) {
+  if (!mapper_)
     return;
 
-  if (options_.map_publish_period > 0.0 && has_published_octomap_ &&
+  if (options_.map_publish_period > 0.0 && has_published_map_ &&
       stamp >= last_map_publish_stamp_ &&
       (stamp - last_map_publish_stamp_).toSec() < options_.map_publish_period) {
     return;
   }
 
-  octomap_msgs::Octomap message;
-  if (!octomap_msgs::binaryMapToMsg(*mapper_->GetOctree(), message)) {
-    ROS_WARN_THROTTLE(1.0, "Failed to serialize OctoMap for visualization.");
-    return;
+  bool published = false;
+  if (const octomap::OcTree *octree = mapper_->GetOctree()) {
+    octomap_msgs::Octomap message;
+    if (!octomap_msgs::binaryMapToMsg(*octree, message)) {
+      ROS_WARN_THROTTLE(1.0, "Failed to serialize OctoMap for visualization.");
+    } else {
+      message.header.stamp = stamp;
+      message.header.frame_id = "world";
+      pub_octomap_.publish(message);
+      published = true;
+    }
   }
 
-  message.header.stamp = stamp;
-  message.header.frame_id = "world";
-  pub_octomap_.publish(message);
-  last_map_publish_stamp_ = stamp;
-  has_published_octomap_ = true;
+  CloudPtr point_map;
+  if (mapper_->GetMapCloud(point_map) && point_map && !point_map->empty()) {
+    sensor_msgs::PointCloud2 message;
+    pcl::toROSMsg(*point_map, message);
+    message.header.stamp = stamp;
+    message.header.frame_id = "world";
+    pub_ioctree_map_.publish(message);
+    published = true;
+  }
+
+  if (published) {
+    last_map_publish_stamp_ = stamp;
+    has_published_map_ = true;
+  }
 }
 } // namespace mapping

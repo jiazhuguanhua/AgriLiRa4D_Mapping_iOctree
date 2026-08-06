@@ -28,6 +28,7 @@
 
 #include "comm.h"
 #include "mapper/mapper.h"
+#include "mapper/mapper_ioctree.h"
 #include "mapper/mapper_octomap.h"
 #include "options.h"
 #include "preprocess.h"
@@ -52,7 +53,6 @@ struct DataCache {
   std::mutex mtx; // mutex for data buffer
 
   // LiDAR
-  std::deque<std::pair<double, CloudPtr>> lidar_buffer; // origin frame
   std::deque<PointStamped> lidar_points_stamped_buffer; // points with timestamp
   // RADAR
   std::deque<std::pair<double, RadarCloudPtr>> radar_buffer;
@@ -75,7 +75,7 @@ private:
   void Run();
   bool SyncGroup();
   void Process();
-  void PublishOctomap(const ros::Time &stamp);
+  void PublishMap(const ros::Time &stamp);
   void PublishUpdateStats(const MapperUpdateStats &stats);
 
   ros::NodeHandle nh_;
@@ -91,7 +91,7 @@ private:
   // mapping backend
   std::unique_ptr<Mapper> mapper_;
   ros::Time last_map_publish_stamp_;
-  bool has_published_octomap_ = false;
+  bool has_published_map_ = false;
   double last_process_cpu_time_ms_ = 0.0;
   double last_process_wall_time_ms_ = 0.0;
 
@@ -109,6 +109,7 @@ private:
   ros::Publisher pub_lidar_aft_mapped_;
   ros::Publisher pub_radar_aft_mapped_;
   ros::Publisher pub_octomap_;
+  ros::Publisher pub_ioctree_map_;
   ros::Publisher pub_update_stats_;
 };
 } // namespace mapping

@@ -12,6 +12,7 @@ Panels:
         - /Odometry1/Shape1
         - /Path1
         - /Path1/Offset1
+        - /i-Octree Point Map1
         - /OccupancyGrid1
       Splitter Ratio: 0.5
     Tree Height: 1079
@@ -173,15 +174,43 @@ Visualization Manager:
       Topic: /path
       Unreliable: false
       Value: true
-    - Class: octomap_rviz_plugin/OccupancyGrid
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: AxisColor
+      Decay Time: 0
       Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Min Color: 0; 0; 0
+      Name: i-Octree Point Map
+      Position Transformer: XYZ
+      Queue Size: 2
+      Selectable: true
+      Size (Pixels): 2
+      Size (m): 0.05000000074505806
+      Style: Points
+      Topic: /ioctree_map_points
+      Unreliable: false
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
+    - Class: octomap_rviz_plugin/OccupancyGrid
+      Enabled: false
       Max. Height Display: inf
       Max. Octree Depth: 16
       Min. Height Display: -inf
       Name: OccupancyGrid
       Octomap Topic: /octomap_binary
       Queue Size: 5
-      Value: true
+      Value: false
       Voxel Alpha: 1
       Voxel Coloring: Z-Axis
       Voxel Rendering: Occupied Voxels
