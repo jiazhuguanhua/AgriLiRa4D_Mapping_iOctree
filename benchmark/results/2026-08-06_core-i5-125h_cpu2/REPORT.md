@@ -1,5 +1,7 @@
 # OctoMap 与 i-OctTree `Update()` 定量实验报告
 
+![OctoMap 与 i-OctTree Update 性能对比](map_update_comparison.png)
+
 ## 1. 结论先行
 
 在本机、当前项目默认参数和 AgriLiRa4D 真实数据上，i-OctTree 的纯

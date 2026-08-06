@@ -30,6 +30,15 @@ metric. In particular, upstream i-OctTree's `size()` counter can include points
 that are later suppressed by leaf downsampling. Use RSS for memory comparison;
 do not compare this counter directly with OctoMap's node count.
 
+Render a PNG and editable SVG from an existing result directory:
+
+```bash
+python3 benchmark/plot_map_update.py \
+  --results-dir benchmark/results/2026-08-06_core-i5-125h_cpu2 \
+  --png /tmp/map_update_comparison.png \
+  --svg /tmp/map_update_comparison.svg
+```
+
 The comparison is intentionally an application-level backend comparison, not a
 claim of equivalent map semantics: OctoMap ray-casts and updates free/occupied
 probabilities, while i-OctTree stores incremental hit points.
