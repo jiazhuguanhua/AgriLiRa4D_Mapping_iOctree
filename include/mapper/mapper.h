@@ -46,7 +46,14 @@ public:
   virtual void Update(const MapperInput &input) = 0;
   virtual void Reset() = 0;
   virtual bool Save(const std::string &path) const = 0;
-  virtual const octomap::OcTree *GetOctree() const = 0;
+
+  // Backends expose only the representation they own. The default methods
+  // make map publication independent from a particular mapper type.
+  virtual const octomap::OcTree *GetOctree() const { return nullptr; }
+  virtual bool GetMapCloud(CloudPtr &cloud) const {
+    cloud.reset();
+    return false;
+  }
 };
 
 } // namespace mapping

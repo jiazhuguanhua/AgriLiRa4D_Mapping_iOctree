@@ -16,6 +16,7 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include "mapper/mapper_ioctree.h"
 #include "mapper/mapper_octomap.h"
 
 namespace mapping {
@@ -47,10 +48,11 @@ struct Options {
   double lidar_blind = 2.0;
   int pose_num_threshold = 8;
 
-  int mapper_type = 0; // 0: OctoMapper
+  int mapper_type = 1; // 0: OctoMapper, 1: IOctreeMapper
   double map_publish_period = 1.0; // seconds; <= 0 publishes every update
 
   OctoMapper::Options octomap_options = OctoMapper::Options();
+  IOctreeMapper::Options ioctree_options = IOctreeMapper::Options();
 };
 
 Options LoadOptionsFromFile(const std::string &config_file);
