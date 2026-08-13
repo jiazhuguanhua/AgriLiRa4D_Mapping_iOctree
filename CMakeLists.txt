@@ -142,4 +142,22 @@ if(CATKIN_ENABLE_TESTING)
     ${OCTOMAP_LIBRARIES}
     ${YAML_CPP_LIBRARIES}
   )
+
+  add_executable(local_map_maintenance_benchmark
+    benchmark/local_map_maintenance_benchmark.cpp
+    src/mapper/mapper.cpp
+  )
+  target_include_directories(local_map_maintenance_benchmark PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${IOCTREE_INCLUDE_DIR}
+    ${catkin_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIRS}
+    ${PCL_INCLUDE_DIRS}
+    ${OCTOMAP_INCLUDE_DIRS}
+  )
+  target_link_libraries(local_map_maintenance_benchmark
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    ${OCTOMAP_LIBRARIES}
+  )
 endif()
