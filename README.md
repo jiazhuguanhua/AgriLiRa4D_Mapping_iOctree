@@ -46,12 +46,17 @@ mapper:
   type: 1 # 0: OctoMap occupancy map, 1: i-Octree point map
 ```
 
-The i-Octree backend incrementally stores the motion-compensated LiDAR points
-in the `world` frame. It publishes the complete point map as a latched
-`sensor_msgs/PointCloud2` message on `/ioctree_map_points`. Unlike OctoMap, the
-i-Octree backend is a point-cloud spatial index and does not represent free or
-unknown space. `publish_period` limits full-map export and publication; map
-insertion still runs for every synchronized measurement group.
+Both backends expose the same occupied-voxel snapshot interface and publish a
+latched full `octomap_msgs/Octomap` message on `/occupied_voxels`. Only occupied
+leaf cells are exported; free and unknown cells remain backend-internal. The
+provided RViz configuration renders this topic with the OctoMap OccupancyGrid
+display. `publish_period` limits snapshot export and publication; map updates
+still run for every synchronized measurement group.
+
+The i-Octree backend remains a point-cloud spatial index internally. Alongside
+it, the mapper maintains a fixed-resolution voxel hit counter. A cell containing
+`n` accepted points receives probability `1 - exp(-n / probability_scale)` and
+is exported only when it meets both configured thresholds.
 
 The i-Octree options are:
 
@@ -61,10 +66,14 @@ ioctree:
   bucket_size: 32
   downsample: true
   max_range: 50.0
+  occupancy_resolution: 0.5
+  min_points_per_voxel: 1
+  occupancy_threshold: 0.5
+  probability_scale: 1.0
 ```
 
 `IOctreeMapper::Save()` writes a binary PCD file. The existing OctoMap backend
-remains available for regression testing and publishes `/octomap_binary`.
+remains available and exports its occupied leaves through the same interface.
 
 
 ## Notes
@@ -76,5 +85,4 @@ remains available for regression testing and publishes `/octomap_binary`.
 **Extrinsics for Robosense Airy LiDAR**
 
 ![](imgs/Airy_Extrinsics.png)
-
 

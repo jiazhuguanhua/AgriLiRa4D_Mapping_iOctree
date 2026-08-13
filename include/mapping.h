@@ -108,8 +108,7 @@ private:
   ros::Publisher pub_path_;
   ros::Publisher pub_lidar_aft_mapped_;
   ros::Publisher pub_radar_aft_mapped_;
-  ros::Publisher pub_octomap_;
-  ros::Publisher pub_ioctree_map_;
+  ros::Publisher pub_occupied_voxels_;
   ros::Publisher pub_update_stats_;
 };
 } // namespace mapping

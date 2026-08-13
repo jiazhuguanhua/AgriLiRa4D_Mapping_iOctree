@@ -90,6 +90,7 @@ if(CATKIN_ENABLE_TESTING)
     test/test_mapper_ioctree.cpp
     src/mapper/mapper.cpp
     src/mapper/mapper_ioctree.cpp
+    src/mapper/mapper_octomap.cpp
     src/options.cpp
   )
   if(TARGET test_mapper_ioctree)

@@ -37,8 +37,7 @@ public:
   void Update(const MapperInput &input) override;
   void Reset() override;
   bool Save(const std::string &path) const override;
-
-  const octomap::OcTree *GetOctree() const override { return octree_.get(); }
+  bool GetOccupiedVoxels(OccupancyMap &map) const override;
 
 private:
   Options options_;

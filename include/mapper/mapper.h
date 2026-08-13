@@ -14,8 +14,8 @@
 
 #include "comm.h"
 
-#include <octomap/OcTree.h>
-#include <yaml-cpp/yaml.h>
+#include <cstdint>
+#include <vector>
 
 namespace mapping {
 
@@ -40,20 +40,32 @@ struct MapperInput {
   RadarCloudPtr radar_cloud;
 };
 
+/**
+ * @brief One occupied cell in a backend-independent map snapshot.
+ *
+ * Unknown and free cells are deliberately omitted. Probability is in [0, 1]
+ * and point_count is zero when the backend does not maintain hit counts.
+ */
+struct OccupiedVoxel {
+  double x = 0.0;
+  double y = 0.0;
+  double z = 0.0;
+  float probability = 0.0f;
+  std::uint32_t point_count = 0;
+};
+
+struct OccupancyMap {
+  double resolution = 0.0;
+  std::vector<OccupiedVoxel> voxels;
+};
+
 class Mapper {
 public:
   virtual ~Mapper() = default;
   virtual void Update(const MapperInput &input) = 0;
   virtual void Reset() = 0;
   virtual bool Save(const std::string &path) const = 0;
-
-  // Backends expose only the representation they own. The default methods
-  // make map publication independent from a particular mapper type.
-  virtual const octomap::OcTree *GetOctree() const { return nullptr; }
-  virtual bool GetMapCloud(CloudPtr &cloud) const {
-    cloud.reset();
-    return false;
-  }
+  virtual bool GetOccupiedVoxels(OccupancyMap &map) const = 0;
 };
 
 } // namespace mapping

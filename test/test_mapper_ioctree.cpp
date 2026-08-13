@@ -1,4 +1,5 @@
 #include "mapper/mapper_ioctree.h"
+#include "mapper/mapper_octomap.h"
 #include "options.h"
 
 #include <gtest/gtest.h>
@@ -42,6 +43,10 @@ IOctreeMapper::Options TestOptions() {
   options.bucket_size = 8;
   options.downsample = false;
   options.max_range = 10.0;
+  options.occupancy_resolution = 0.5;
+  options.min_points_per_voxel = 1;
+  options.occupancy_threshold = 0.5;
+  options.probability_scale = 1.0;
   return options;
 }
 
@@ -57,6 +62,26 @@ TEST(IOctreeMapperTest, RejectsInvalidOptions) {
   options = TestOptions();
   options.max_range = -1.0;
   EXPECT_THROW(IOctreeMapper mapper(options), std::invalid_argument);
+
+  options = TestOptions();
+  options.occupancy_resolution = 0.0;
+  EXPECT_THROW(IOctreeMapper mapper(options), std::invalid_argument);
+
+  options = TestOptions();
+  options.min_points_per_voxel = 0;
+  EXPECT_THROW(IOctreeMapper mapper(options), std::invalid_argument);
+
+  options = TestOptions();
+  options.occupancy_threshold = 0.49;
+  EXPECT_THROW(IOctreeMapper mapper(options), std::invalid_argument);
+
+  options = TestOptions();
+  options.occupancy_threshold = 1.1;
+  EXPECT_THROW(IOctreeMapper mapper(options), std::invalid_argument);
+
+  options = TestOptions();
+  options.probability_scale = 0.0;
+  EXPECT_THROW(IOctreeMapper mapper(options), std::invalid_argument);
 }
 
 TEST(IOctreeMapperTest, EmptyInputDoesNotCreateMap) {
@@ -65,10 +90,10 @@ TEST(IOctreeMapperTest, EmptyInputDoesNotCreateMap) {
   input.lidar_cloud.reset(new PointCloudType);
   mapper.Update(input);
 
-  CloudPtr map;
-  EXPECT_FALSE(mapper.GetMapCloud(map));
-  ASSERT_TRUE(map);
-  EXPECT_TRUE(map->empty());
+  OccupancyMap map;
+  EXPECT_FALSE(mapper.GetOccupiedVoxels(map));
+  EXPECT_TRUE(map.voxels.empty());
+  EXPECT_DOUBLE_EQ(map.resolution, 0.5);
 }
 
 TEST(IOctreeMapperTest, FiltersInvalidAndOutOfRangePoints) {
@@ -79,14 +104,12 @@ TEST(IOctreeMapperTest, FiltersInvalidAndOutOfRangePoints) {
        MakePoint(11.0f, 0.0f, 0.0f), MakePoint(nan, 0.0f, 0.0f)});
   mapper.Update(input);
 
-  CloudPtr map;
-  ASSERT_TRUE(mapper.GetMapCloud(map));
-  ASSERT_EQ(map->size(), 1U);
-  EXPECT_FLOAT_EQ(map->front().x, 1.0f);
-  EXPECT_FLOAT_EQ(map->front().intensity, 1.0f);
-  EXPECT_EQ(map->width, 1U);
-  EXPECT_EQ(map->height, 1U);
-  EXPECT_TRUE(map->is_dense);
+  OccupancyMap map;
+  ASSERT_TRUE(mapper.GetOccupiedVoxels(map));
+  ASSERT_EQ(map.voxels.size(), 1U);
+  EXPECT_DOUBLE_EQ(map.voxels.front().x, 1.25);
+  EXPECT_EQ(map.voxels.front().point_count, 1U);
+  EXPECT_NEAR(map.voxels.front().probability, 1.0 - std::exp(-1.0), 1e-6);
 }
 
 TEST(IOctreeMapperTest, AccumulatesAcrossUpdatesAndResetsCleanly) {
@@ -95,18 +118,18 @@ TEST(IOctreeMapperTest, AccumulatesAcrossUpdatesAndResetsCleanly) {
   mapper.Update(MakeInput({MakePoint(2.0f, 0.0f, 0.0f),
                            MakePoint(3.0f, 0.0f, 0.0f)}));
 
-  CloudPtr map;
-  ASSERT_TRUE(mapper.GetMapCloud(map));
-  EXPECT_EQ(map->size(), 3U);
+  OccupancyMap map;
+  ASSERT_TRUE(mapper.GetOccupiedVoxels(map));
+  EXPECT_EQ(map.voxels.size(), 3U);
 
   mapper.Reset();
-  EXPECT_FALSE(mapper.GetMapCloud(map));
-  EXPECT_TRUE(map->empty());
+  EXPECT_FALSE(mapper.GetOccupiedVoxels(map));
+  EXPECT_TRUE(map.voxels.empty());
 
   mapper.Update(MakeInput({MakePoint(4.0f, 0.0f, 0.0f)}));
-  ASSERT_TRUE(mapper.GetMapCloud(map));
-  ASSERT_EQ(map->size(), 1U);
-  EXPECT_FLOAT_EQ(map->front().x, 4.0f);
+  ASSERT_TRUE(mapper.GetOccupiedVoxels(map));
+  ASSERT_EQ(map.voxels.size(), 1U);
+  EXPECT_DOUBLE_EQ(map.voxels.front().x, 4.25);
 }
 
 TEST(IOctreeMapperTest, RejectsInvalidOrigin) {
@@ -115,8 +138,8 @@ TEST(IOctreeMapperTest, RejectsInvalidOrigin) {
   input.lidar_origin.x() = std::numeric_limits<double>::infinity();
   mapper.Update(input);
 
-  CloudPtr map;
-  EXPECT_FALSE(mapper.GetMapCloud(map));
+  OccupancyMap map;
+  EXPECT_FALSE(mapper.GetOccupiedVoxels(map));
 }
 
 TEST(IOctreeMapperTest, SavesBinaryPcdAndCanReadItBack) {
@@ -159,21 +182,21 @@ TEST(IOctreeMapperTest, HandlesLargeIncrementalMapAndRepeatedReset) {
       mapper.Update(input);
     }
 
-    CloudPtr map;
-    ASSERT_TRUE(mapper.GetMapCloud(map));
-    ASSERT_EQ(map->size(),
-              static_cast<std::size_t>(kBatches * kPointsPerBatch));
-    for (const auto &point : *map) {
-      EXPECT_TRUE(std::isfinite(point.x));
-      EXPECT_TRUE(std::isfinite(point.y));
-      EXPECT_TRUE(std::isfinite(point.z));
+    OccupancyMap map;
+    ASSERT_TRUE(mapper.GetOccupiedVoxels(map));
+    EXPECT_FALSE(map.voxels.empty());
+    for (const auto &voxel : map.voxels) {
+      EXPECT_TRUE(std::isfinite(voxel.x));
+      EXPECT_TRUE(std::isfinite(voxel.y));
+      EXPECT_TRUE(std::isfinite(voxel.z));
+      EXPECT_GE(voxel.probability, options.occupancy_threshold);
     }
     mapper.Reset();
-    EXPECT_FALSE(mapper.GetMapCloud(map));
+    EXPECT_FALSE(mapper.GetOccupiedVoxels(map));
   }
 }
 
-TEST(IOctreeMapperTest, DownsamplingBoundsRepeatedPointGrowth) {
+TEST(IOctreeMapperTest, CountsHitsIndependentlyOfPointMapDownsampling) {
   auto options = TestOptions();
   options.bucket_size = 8;
   options.min_extent = 0.1;
@@ -184,10 +207,32 @@ TEST(IOctreeMapperTest, DownsamplingBoundsRepeatedPointGrowth) {
     mapper.Update(MakeInput({MakePoint(1.0f, 1.0f, 1.0f)}));
   }
 
-  CloudPtr map;
-  ASSERT_TRUE(mapper.GetMapCloud(map));
-  EXPECT_LT(map->size(), 100U);
-  EXPECT_GE(map->size(), 1U);
+  OccupancyMap map;
+  ASSERT_TRUE(mapper.GetOccupiedVoxels(map));
+  ASSERT_EQ(map.voxels.size(), 1U);
+  EXPECT_EQ(map.voxels.front().point_count, 100U);
+  EXPECT_GT(map.voxels.front().probability, 0.99f);
+}
+
+TEST(IOctreeMapperTest, AppliesPointCountAndProbabilityThresholds) {
+  auto options = TestOptions();
+  options.min_points_per_voxel = 2;
+  options.occupancy_threshold = 0.8;
+  options.probability_scale = 2.0;
+  IOctreeMapper mapper(options);
+
+  mapper.Update(MakeInput({MakePoint(1.0f, 0.0f, 0.0f),
+                           MakePoint(1.1f, 0.0f, 0.0f),
+                           MakePoint(2.0f, 0.0f, 0.0f)}));
+  OccupancyMap map;
+  EXPECT_FALSE(mapper.GetOccupiedVoxels(map));
+
+  mapper.Update(MakeInput({MakePoint(1.2f, 0.0f, 0.0f),
+                           MakePoint(1.3f, 0.0f, 0.0f)}));
+  ASSERT_TRUE(mapper.GetOccupiedVoxels(map));
+  ASSERT_EQ(map.voxels.size(), 1U);
+  EXPECT_EQ(map.voxels.front().point_count, 4U);
+  EXPECT_NEAR(map.voxels.front().probability, 1.0 - std::exp(-2.0), 1e-6);
 }
 
 TEST(IOctreeMapperTest, LoadsIOctreeConfigurationAndRelativePosePath) {
@@ -199,9 +244,32 @@ TEST(IOctreeMapperTest, LoadsIOctreeConfigurationAndRelativePosePath) {
   EXPECT_EQ(options.ioctree_options.bucket_size, 8U);
   EXPECT_FALSE(options.ioctree_options.downsample);
   EXPECT_DOUBLE_EQ(options.ioctree_options.max_range, 20.0);
+  EXPECT_DOUBLE_EQ(options.ioctree_options.occupancy_resolution, 0.5);
+  EXPECT_EQ(options.ioctree_options.min_points_per_voxel, 1U);
+  EXPECT_DOUBLE_EQ(options.ioctree_options.occupancy_threshold, 0.5);
+  EXPECT_DOUBLE_EQ(options.ioctree_options.probability_scale, 1.0);
   EXPECT_EQ(options.pose_gt_file,
             std::string(MAPPING_TEST_SOURCE_DIR) +
                 "/test/data/integration_poses.txt");
+}
+
+TEST(MapperInterfaceTest, OctomapExportsOnlyOccupiedLeafVoxels) {
+  OctoMapper::Options options;
+  options.resolution = 0.5;
+  options.max_range = 10.0;
+  options.hit_prob = 0.7;
+  options.miss_prob = 0.4;
+  options.occupancy_threshold = 0.5;
+  OctoMapper mapper(options);
+
+  mapper.Update(MakeInput({MakePoint(2.0f, 0.0f, 0.0f)}));
+
+  OccupancyMap map;
+  ASSERT_TRUE(mapper.GetOccupiedVoxels(map));
+  ASSERT_EQ(map.voxels.size(), 1U);
+  EXPECT_DOUBLE_EQ(map.resolution, options.resolution);
+  EXPECT_NEAR(map.voxels.front().probability, options.hit_prob, 1e-6);
+  EXPECT_EQ(map.voxels.front().point_count, 0U);
 }
 
 } // namespace

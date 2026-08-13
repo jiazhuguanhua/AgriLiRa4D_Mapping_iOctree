@@ -6,6 +6,7 @@ import unittest
 
 import rospy
 import rostest
+from octomap_msgs.msg import Octomap
 from sensor_msgs.msg import PointCloud2, PointField
 from std_msgs.msg import Header
 
@@ -67,7 +68,7 @@ class IOctreePipelineIntegrationTest(unittest.TestCase):
         self.map_message = None
         self.map_event = threading.Event()
         self.map_sub = rospy.Subscriber(
-            "/ioctree_map_points", PointCloud2, self._map_callback, queue_size=1
+            "/occupied_voxels", Octomap, self._map_callback, queue_size=1
         )
         self.lidar_pub = rospy.Publisher(
             "/test/rslidar_points", PointCloud2, queue_size=1, latch=True
@@ -80,7 +81,7 @@ class IOctreePipelineIntegrationTest(unittest.TestCase):
         self.map_message = message
         self.map_event.set()
 
-    def test_pipeline_publishes_incremental_point_map(self):
+    def test_pipeline_publishes_occupied_voxels(self):
         deadline = rospy.Time.now() + rospy.Duration(5.0)
         while not rospy.is_shutdown() and rospy.Time.now() < deadline:
             if self.lidar_pub.get_num_connections() and self.radar_pub.get_num_connections():
@@ -96,9 +97,9 @@ class IOctreePipelineIntegrationTest(unittest.TestCase):
         self.assertTrue(self.map_event.wait(5.0), "timed out waiting for i-Octree map")
         self.assertIsNotNone(self.map_message)
         self.assertEqual(self.map_message.header.frame_id, "world")
-        self.assertGreater(self.map_message.width, 0)
-        field_names = {field.name for field in self.map_message.fields}
-        self.assertTrue({"x", "y", "z"}.issubset(field_names))
+        self.assertFalse(self.map_message.binary)
+        self.assertEqual(self.map_message.id, "OcTree")
+        self.assertGreater(len(self.map_message.data), 0)
 
 
 if __name__ == "__main__":

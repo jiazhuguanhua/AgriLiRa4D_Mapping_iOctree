@@ -32,3 +32,7 @@ mapper:
     bucket_size: 8
     downsample: false
     max_range: 20.0
+    occupancy_resolution: 0.5
+    min_points_per_voxel: 1
+    occupancy_threshold: 0.5
+    probability_scale: 1.0

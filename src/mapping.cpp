@@ -3,6 +3,8 @@
 #include <jsk_rviz_plugins/OverlayText.h>
 #include <octomap_msgs/conversions.h>
 
+#include <algorithm>
+
 namespace mapping {
 
 Mapping::Mapping(ros::NodeHandle &nh, const Options &options)
@@ -22,10 +24,8 @@ Mapping::Mapping(ros::NodeHandle &nh, const Options &options)
       nh_.advertise<sensor_msgs::PointCloud2>("lidar_aft_mapped", 10);
   pub_radar_aft_mapped_ =
       nh_.advertise<sensor_msgs::PointCloud2>("radar_aft_mapped", 10);
-  pub_octomap_ =
-      nh_.advertise<octomap_msgs::Octomap>("octomap_binary", 1, true);
-  pub_ioctree_map_ =
-      nh_.advertise<sensor_msgs::PointCloud2>("ioctree_map_points", 1, true);
+  pub_occupied_voxels_ =
+      nh_.advertise<octomap_msgs::Octomap>("occupied_voxels", 1, true);
   pub_update_stats_ =
       nh_.advertise<jsk_rviz_plugins::OverlayText>("mapper_update_stats", 1);
 
@@ -467,32 +467,34 @@ void Mapping::PublishMap(const ros::Time &stamp) {
     return;
   }
 
-  bool published = false;
-  if (const octomap::OcTree *octree = mapper_->GetOctree()) {
-    octomap_msgs::Octomap message;
-    if (!octomap_msgs::binaryMapToMsg(*octree, message)) {
-      ROS_WARN_THROTTLE(1.0, "Failed to serialize OctoMap for visualization.");
-    } else {
-      message.header.stamp = stamp;
-      message.header.frame_id = "world";
-      pub_octomap_.publish(message);
-      published = true;
-    }
+  OccupancyMap map;
+  if (!mapper_->GetOccupiedVoxels(map) || map.voxels.empty())
+    return;
+
+  octomap::OcTree output(map.resolution);
+  output.setOccupancyThres(0.5);
+  for (const auto &voxel : map.voxels) {
+    const octomap::point3d center(voxel.x, voxel.y, voxel.z);
+    octomap::OcTreeNode *node = output.updateNode(center, true, true);
+    if (!node)
+      continue;
+
+    const double probability =
+        std::clamp(static_cast<double>(voxel.probability), 0.500001, 0.999999);
+    node->setLogOdds(octomap::logodds(probability));
+  }
+  output.updateInnerOccupancy();
+
+  octomap_msgs::Octomap message;
+  if (!octomap_msgs::fullMapToMsg(output, message)) {
+    ROS_WARN_THROTTLE(1.0, "Failed to serialize occupied voxel map.");
+    return;
   }
 
-  CloudPtr point_map;
-  if (mapper_->GetMapCloud(point_map) && point_map && !point_map->empty()) {
-    sensor_msgs::PointCloud2 message;
-    pcl::toROSMsg(*point_map, message);
-    message.header.stamp = stamp;
-    message.header.frame_id = "world";
-    pub_ioctree_map_.publish(message);
-    published = true;
-  }
-
-  if (published) {
-    last_map_publish_stamp_ = stamp;
-    has_published_map_ = true;
-  }
+  message.header.stamp = stamp;
+  message.header.frame_id = "world";
+  pub_occupied_voxels_.publish(message);
+  last_map_publish_stamp_ = stamp;
+  has_published_map_ = true;
 }
 } // namespace mapping

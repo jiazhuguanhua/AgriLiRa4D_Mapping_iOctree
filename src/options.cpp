@@ -71,6 +71,23 @@ Options LoadOptionsFromFile(const std::string &config_file) {
         config["mapper"]["ioctree"]["downsample"].as<bool>();
     options.ioctree_options.max_range =
         config["mapper"]["ioctree"]["max_range"].as<double>();
+    if (config["mapper"]["ioctree"]["occupancy_resolution"]) {
+      options.ioctree_options.occupancy_resolution =
+          config["mapper"]["ioctree"]["occupancy_resolution"].as<double>();
+    }
+    if (config["mapper"]["ioctree"]["min_points_per_voxel"]) {
+      options.ioctree_options.min_points_per_voxel =
+          config["mapper"]["ioctree"]["min_points_per_voxel"]
+              .as<std::uint32_t>();
+    }
+    if (config["mapper"]["ioctree"]["occupancy_threshold"]) {
+      options.ioctree_options.occupancy_threshold =
+          config["mapper"]["ioctree"]["occupancy_threshold"].as<double>();
+    }
+    if (config["mapper"]["ioctree"]["probability_scale"]) {
+      options.ioctree_options.probability_scale =
+          config["mapper"]["ioctree"]["probability_scale"].as<double>();
+    }
   }
 
   return options;

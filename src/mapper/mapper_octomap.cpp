@@ -84,4 +84,25 @@ bool OctoMapper::Save(const std::string &path) const {
   return octree_->writeBinary(path);
 }
 
+bool OctoMapper::GetOccupiedVoxels(OccupancyMap &map) const {
+  map.resolution = options_.resolution;
+  map.voxels.clear();
+  if (!octree_)
+    return false;
+
+  for (auto it = octree_->begin_leafs(), end = octree_->end_leafs(); it != end;
+       ++it) {
+    if (!octree_->isNodeOccupied(*it))
+      continue;
+
+    OccupiedVoxel voxel;
+    voxel.x = it.getX();
+    voxel.y = it.getY();
+    voxel.z = it.getZ();
+    voxel.probability = static_cast<float>(it->getOccupancy());
+    map.voxels.push_back(voxel);
+  }
+  return !map.voxels.empty();
+}
+
 } // namespace mapping
