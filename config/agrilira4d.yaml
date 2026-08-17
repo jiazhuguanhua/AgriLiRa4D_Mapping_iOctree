@@ -23,7 +23,7 @@ preprocess:
   lidar_blind: 2
           
 mapper:
-  type: 0 # 0: OctoMapper
+  type: 1 # 0: OctoMapper occupancy map, 1: i-Octree point map
   publish_period: 1.0 # seconds; <= 0 publishes every map update
   octomap:
     resolution: 0.5
@@ -31,3 +31,12 @@ mapper:
     hit_prob: 0.7
     miss_prob: 0.4
     occupancy_threshold: 0.5
+  ioctree:
+    min_extent: 0.25
+    bucket_size: 32
+    downsample: true
+    max_range: 50.0
+    occupancy_resolution: 0.5
+    min_points_per_voxel: 1
+    occupancy_threshold: 0.5
+    probability_scale: 1.0

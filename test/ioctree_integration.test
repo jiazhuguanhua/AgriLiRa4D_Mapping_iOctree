@@ -1,0 +1,7 @@
+<launch>
+  <node name="mapping_node" pkg="mapping" type="mapping_node"
+        args="$(find mapping)/test/data/integration.yaml" output="screen" />
+
+  <test test-name="ioctree_pipeline_integration" pkg="mapping"
+        type="ioctree_integration_test.py" time-limit="20.0" />
+</launch>

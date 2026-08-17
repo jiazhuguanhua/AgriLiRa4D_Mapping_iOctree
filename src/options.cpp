@@ -1,5 +1,7 @@
 #include "options.h"
 
+#include <filesystem>
+
 namespace mapping {
 
 Options LoadOptionsFromFile(const std::string &config_file) {
@@ -10,6 +12,13 @@ Options LoadOptionsFromFile(const std::string &config_file) {
   options.verbose = config["verbose"].as<bool>();
 
   options.pose_gt_file = config["pose_gt_file"].as<std::string>();
+  const std::filesystem::path pose_path(options.pose_gt_file);
+  if (pose_path.is_relative()) {
+    options.pose_gt_file =
+        (std::filesystem::path(config_file).parent_path() / pose_path)
+            .lexically_normal()
+            .string();
+  }
   options.lidar_topic = config["lidar_topic"].as<std::string>();
   options.radar_topic = config["radar_topic"].as<std::string>();
 
@@ -53,6 +62,32 @@ Options LoadOptionsFromFile(const std::string &config_file) {
         config["mapper"]["octomap"]["miss_prob"].as<double>();
     options.octomap_options.occupancy_threshold =
         config["mapper"]["octomap"]["occupancy_threshold"].as<double>();
+  } else if (options.mapper_type == 1) {
+    options.ioctree_options.min_extent =
+        config["mapper"]["ioctree"]["min_extent"].as<double>();
+    options.ioctree_options.bucket_size =
+        config["mapper"]["ioctree"]["bucket_size"].as<std::size_t>();
+    options.ioctree_options.downsample =
+        config["mapper"]["ioctree"]["downsample"].as<bool>();
+    options.ioctree_options.max_range =
+        config["mapper"]["ioctree"]["max_range"].as<double>();
+    if (config["mapper"]["ioctree"]["occupancy_resolution"]) {
+      options.ioctree_options.occupancy_resolution =
+          config["mapper"]["ioctree"]["occupancy_resolution"].as<double>();
+    }
+    if (config["mapper"]["ioctree"]["min_points_per_voxel"]) {
+      options.ioctree_options.min_points_per_voxel =
+          config["mapper"]["ioctree"]["min_points_per_voxel"]
+              .as<std::uint32_t>();
+    }
+    if (config["mapper"]["ioctree"]["occupancy_threshold"]) {
+      options.ioctree_options.occupancy_threshold =
+          config["mapper"]["ioctree"]["occupancy_threshold"].as<double>();
+    }
+    if (config["mapper"]["ioctree"]["probability_scale"]) {
+      options.ioctree_options.probability_scale =
+          config["mapper"]["ioctree"]["probability_scale"].as<double>();
+    }
   }
 
   return options;

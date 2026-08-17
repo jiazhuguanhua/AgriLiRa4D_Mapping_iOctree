@@ -12,7 +12,7 @@ Panels:
         - /Odometry1/Shape1
         - /Path1
         - /Path1/Offset1
-        - /OccupancyGrid1
+        - /Occupied Voxels1
       Splitter Ratio: 0.5
     Tree Height: 1079
   - Class: rviz/Selection
@@ -178,8 +178,8 @@ Visualization Manager:
       Max. Height Display: inf
       Max. Octree Depth: 16
       Min. Height Display: -inf
-      Name: OccupancyGrid
-      Octomap Topic: /octomap_binary
+      Name: Occupied Voxels
+      Octomap Topic: /occupied_voxels
       Queue Size: 5
       Value: true
       Voxel Alpha: 1
